@@ -255,5 +255,4 @@ int main() {
     world.printReport();
     cout << "\nНатисніть Enter, щоб завершити..." << endl;
     cin.get();
-    return 0;
 }
