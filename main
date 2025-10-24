@@ -1,0 +1,321 @@
+using System;
+using System.Collections.Generic;
+
+namespace AnimalWorldSimulation
+{
+    // Базовий клас тварини
+    public abstract class Animal
+    {
+        public string Name { get; protected set; }
+        public int Weight { get; protected set; }   // вага
+        public int Life { get; protected set; }     // показник "життя" (наприклад, 0 = мертва)
+        public bool IsAlive => Life > 0;
+
+        protected Animal(string name, int weight, int life = 100)
+        {
+            Name = name;
+            Weight = weight;
+            Life = life;
+        }
+
+        // Інформація про тварину
+        public virtual string Info()
+        {
+            return $"{GetType().Name} \"{Name}\": Weight={Weight}, Life={Life}, Alive={IsAlive}";
+        }
+    }
+
+    // Травоїдні (Herbivore) - базовий клас
+    public abstract class Herbivore : Animal
+    {
+        protected Herbivore(string name, int weight, int life = 100)
+            : base(name, weight, life) { }
+
+        // Метод їсти траву: додає +10 до ваги
+        public virtual void EatGrass()
+        {
+            if (!IsAlive) return;
+            Weight += 10;
+            Console.WriteLine($"{GetType().Name} \"{Name}\" їсть траву: вага -> {Weight}");
+        }
+    }
+
+    // Хижі (Carnivore) - базовий клас
+    public abstract class Carnivore : Animal
+    {
+        public int Power { get; protected set; }   // сила хижака
+
+        protected Carnivore(string name, int weight, int power, int life = 100)
+            : base(name, weight, life)
+        {
+            Power = power;
+        }
+
+        // Метод їсти травоїдну тварину
+        // Якщо сила хижака > вага травоїдного => травоїдний "вмирає", хижак отримує +10 сили
+        // Інакше сила хижака зменшується на 10
+        public virtual void Eat(Herbivore prey)
+        {
+            if (!IsAlive)
+            {
+                Console.WriteLine($"{GetType().Name} \"{Name}\" мертвий і не може полювати.");
+                return;
+            }
+
+            if (prey == null)
+            {
+                Console.WriteLine($"{GetType().Name} \"{Name}\": жодної здобичі.");
+                return;
+            }
+
+            if (!prey.IsAlive)
+            {
+                Console.WriteLine($"{GetType().Name} \"{Name}\" знаходить {prey.Name}, але вона вже мертва.");
+                return;
+            }
+
+            Console.WriteLine($"{GetType().Name} \"{Name}\" намагається зловити {prey.GetType().Name} \"{prey.Name}\" (вага {prey.Weight})...");
+
+            if (Power > prey.Weight)
+            {
+                // хижак перемагає
+                prey.Life = 0;
+                Power += 10;
+                Console.WriteLine($"Хижак \"{Name}\" успішно зловив \"{prey.Name}\". Сила -> {Power}. \"{prey.Name}\" померла.");
+            }
+            else
+            {
+                // програш
+                Power = Math.Max(0, Power - 10);
+                Console.WriteLine($"Хижак \"{Name}\" не зміг впоратись. Сила зменшилась -> {Power}. \"{prey.Name}\" втікає.");
+            }
+        }
+
+        public override string Info()
+        {
+            return $"{base.Info()}, Power={Power}";
+        }
+    }
+
+    // Конкретні травоїдні
+    public class Antilopa : Herbivore
+    {
+        public Antilopa(string name, int weight) : base(name, weight) { }
+    }
+
+    public class Bison : Herbivore
+    {
+        public Bison(string name, int weight) : base(name, weight) { }
+    }
+
+    // Конкретні хижаки
+    public class Lion : Carnivore
+    {
+        public Lion(string name, int weight, int power) : base(name, weight, power) { }
+    }
+
+    public class Wolf : Carnivore
+    {
+        public Wolf(string name, int weight, int power) : base(name, weight, power) { }
+    }
+
+    // Континент - базовий клас
+    public abstract class Continent
+    {
+        public string ContinentName { get; protected set; }
+        public List<Animal> Residents { get; protected set; } = new List<Animal>();
+
+        protected Continent(string name)
+        {
+            ContinentName = name;
+        }
+
+        // Метод для наповнення континенту характерною фауною
+        public abstract void Populate(Random rnd);
+    }
+
+    // Африка - приклад конкретного континенту
+    public class Africa : Continent
+    {
+        public Africa() : base("Africa") { }
+
+        public override void Populate(Random rnd)
+        {
+            Residents.Clear();
+            // Африка: типові тварини - антилопи, леви, бізони (умовно)
+            for (int i = 0; i < 3; i++)
+            {
+                Residents.Add(new Antilopa($"Antilope_Afr_{i + 1}", rnd.Next(30, 80)));
+            }
+            Residents.Add(new Lion($"Lion_Afr_1", rnd.Next(150, 220), rnd.Next(80, 130)));
+            Residents.Add(new Wolf($"Wolf_Afr_1", rnd.Next(60, 100), rnd.Next(40, 80))); // умовно
+        }
+    }
+
+    // Північна Америка - приклад
+    public class NorthAmerica : Continent
+    {
+        public NorthAmerica() : base("North America") { }
+
+        public override void Populate(Random rnd)
+        {
+            Residents.Clear();
+            // ПН Америка: бізони, вовки, антилопоподібні (умовно)
+            Residents.Add(new Bison($"Bison_NA_1", rnd.Next(300, 700)));
+            Residents.Add(new Bison($"Bison_NA_2", rnd.Next(300, 700)));
+            Residents.Add(new Wolf($"Wolf_NA_1", rnd.Next(60, 110), rnd.Next(50, 90)));
+            Residents.Add(new Lion($"Lion_NA_1", rnd.Next(150, 220), rnd.Next(70, 120))); // умовно
+            Residents.Add(new Antilopa($"Antilope_NA_1", rnd.Next(40, 90)));
+        }
+    }
+
+    // "Світ тварин" - керуючий клас (клієнт)
+    public class AnimalWorld
+    {
+        private Random _rnd = new Random();
+
+        public Herbivore[] Herbivores { get; private set; } = new Herbivore[5];
+        public Carnivore[] Carnivores { get; private set; } = new Carnivore[5];
+        public Animal[] Animals { get; private set; } = new Animal[10];
+
+        public Continent[] Continents { get; private set; }
+
+        public AnimalWorld()
+        {
+            // Створимо континенти і наповнимо їх
+            Continents = new Continent[] { new Africa(), new NorthAmerica() };
+            foreach (var c in Continents)
+                c.Populate(_rnd);
+        }
+
+        // Метод для генерації масивів відповідно до умови
+        public void GenerateArrays()
+        {
+            // Масив травоїдних на 5 елементів (випадково - антилопи або бізони)
+            for (int i = 0; i < Herbivores.Length; i++)
+            {
+                if (_rnd.Next(2) == 0)
+                    Herbivores[i] = new Antilopa($"Ant_{i + 1}", _rnd.Next(30, 120));
+                else
+                    Herbivores[i] = new Bison($"Bison_{i + 1}", _rnd.Next(200, 700));
+            }
+
+            // Масив хижаків на 5 елементів (леви або вовки)
+            for (int i = 0; i < Carnivores.Length; i++)
+            {
+                if (_rnd.Next(2) == 0)
+                    Carnivores[i] = new Lion($"Lion_{i + 1}", _rnd.Next(140, 220), _rnd.Next(60, 120));
+                else
+                    Carnivores[i] = new Wolf($"Wolf_{i + 1}", _rnd.Next(50, 110), _rnd.Next(40, 100));
+            }
+
+            // Масив тварин на 10 елементів (змішані: леви, антилопи, вовки, бізони)
+            for (int i = 0; i < Animals.Length; i++)
+            {
+                int t = _rnd.Next(4);
+                switch (t)
+                {
+                    case 0:
+                        Animals[i] = new Antilopa($"AntMix_{i + 1}", _rnd.Next(30, 120));
+                        break;
+                    case 1:
+                        Animals[i] = new Bison($"BisonMix_{i + 1}", _rnd.Next(200, 700));
+                        break;
+                    case 2:
+                        Animals[i] = new Lion($"LionMix_{i + 1}", _rnd.Next(140, 220), _rnd.Next(60, 120));
+                        break;
+                    default:
+                        Animals[i] = new Wolf($"WolfMix_{i + 1}", _rnd.Next(50, 110), _rnd.Next(40, 100));
+                        break;
+                }
+            }
+        }
+
+        // Проста симуляція: кожен цикл - кожен хижак намагається зловити випадкового травоїдного
+        public void RunSimulation(int steps = 5, int delayMs = 800)
+        {
+            Console.WriteLine("=== Початок симуляції світу тварин ===");
+            for (int step = 1; step <= steps; step++)
+            {
+                Console.WriteLine($"\n--- Крок симуляції {step}/{steps} ---");
+
+                // 1) Кожен травоїдний може поїсти траву (з ймовірністю)
+                foreach (var h in Herbivores)
+                {
+                    if (_rnd.NextDouble() < 0.6) // 60% шанс поїсти
+                        h.EatGrass();
+                }
+
+                // 2) Кожен хижак намагається з'їсти випадкового травоїдного з масиву Herbivores
+                foreach (var carn in Carnivores)
+                {
+                    // Виберемо випадкову живу здобич
+                    var liveHerbivores = new List<Herbivore>();
+                    foreach (var hh in Herbivores)
+                        if (hh.IsAlive) liveHerbivores.Add(hh);
+
+                    Herbivore prey = null;
+                    if (liveHerbivores.Count > 0)
+                        prey = liveHerbivores[_rnd.Next(liveHerbivores.Count)];
+
+                    carn.Eat(prey);
+                }
+
+                // 3) Виведемо стан всіх тварин з масиву Animals
+                Console.WriteLine("\nСтан масиву Animals:");
+                for (int i = 0; i < Animals.Length; i++)
+                {
+                    Console.WriteLine($"[{i}] {Animals[i].Info()}");
+                }
+
+                System.Threading.Thread.Sleep(delayMs);
+            }
+
+            Console.WriteLine("\n=== Кінець симуляції ===");
+        }
+
+        // Друк короткого звіту для всієї системи
+        public void PrintReport()
+        {
+            Console.WriteLine("\n--- Звіт по травоїдним ---");
+            for (int i = 0; i < Herbivores.Length; i++)
+                Console.WriteLine($"Herbivores[{i}]: {Herbivores[i].Info()}");
+
+            Console.WriteLine("\n--- Звіт по хижакам ---");
+            for (int i = 0; i < Carnivores.Length; i++)
+                Console.WriteLine($"Carnivores[{i}]: {Carnivores[i].Info()}");
+        }
+    }
+
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Ініціалізація світу
+            AnimalWorld world = new AnimalWorld();
+            world.GenerateArrays();
+
+            // Вивід початкового стану
+            Console.WriteLine("Початковий стан спільнот (континенти):");
+            foreach (var c in world.Continents)
+            {
+                Console.WriteLine($"Континент: {c.ContinentName}");
+                foreach (var r in c.Residents)
+                    Console.WriteLine("  - " + r.Info());
+            }
+
+            Console.WriteLine("\nГенерую масиви травоїдних (5), хижаків (5) та загальний масив тварин (10).");
+            world.PrintReport();
+
+            // Запустимо симуляцію: 5 кроків
+            world.RunSimulation(steps: 6, delayMs: 700);
+
+            // Фінальний звіт
+            Console.WriteLine("\nФінальний звіт:");
+            world.PrintReport();
+
+            Console.WriteLine("\nНатисніть будь-яку клавішу щоб вийти...");
+            Console.ReadKey();
+        }
+    }
+}
